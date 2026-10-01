@@ -1,279 +1,153 @@
 # SkillOS
 
-**Operating system for AI agent skills**
+**CLI и библиотека для создания, проверки, версионирования и установки навыков ИИ-агентов.** Навык — это переносимый Markdown-файл с YAML front matter; локальный реестр хранит опубликованные версии в JSON.
 
-![npm version](https://img.shields.io/npm/v/skillos)
-![License](https://img.shields.io/npm/l/skillos)
-![Node](https://img.shields.io/node/v/skillos)
+[![npm version](https://img.shields.io/npm/v/skillos)](https://www.npmjs.com/package/skillos)
+[![CI](https://github.com/anecodw/SkillOS/actions/workflows/ci.yml/badge.svg)](https://github.com/anecodw/SkillOS/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-SkillOS is an open-source platform for creating, testing, versioning, and distributing Agent Skills - markdown/JSON descriptions of AI agent behaviors that are rapidly emerging on GitHub.
+## Быстрый старт
 
-## Vision
+```bash
+npm install -g skillos
+skillos init my-research-skill
+skillos validate my-research-skill/skill.md
+```
 
-Agent skills are currently just files. SkillOS transforms them into a full-featured product with:
+Пример вывода:
 
-- **Skill Studio** - Visual + text editor with live preview
-- **Automated Testing** - Sandbox environment with eval sets
-- **Versioning** - Semantic versioning with runtime compatibility
-- **CLI** - Instant installation like npm/yarn for agent skills
-- **Registry** - Local and cloud registry with search and ratings
-- **Skill Graph** - Skills can depend on and call each other
-- **Security** - Static analysis and isolated execution sandbox
-- **Templates** - Ready-to-use skill templates for common scenarios
+```text
+$ skillos validate my-research-skill/skill.md
+Valid skill: my-research-skill@0.1.0
+```
 
-## Current Status (v0.1.0)
+Чтобы опубликовать навык в локальный JSON-реестр и установить его для Claude Code:
 
-**This is an MVP release with the following limitations:**
+```bash
+cd my-research-skill
+skillos publish skill.md
+skillos install my-research-skill --runtime claude-code
+```
 
-### ✅ What Works
-- **CLI Commands**: init, publish, list, search, install, edit
-- **Local Registry**: JSON-based storage (not SQLite)
-- **Skill Parser**: Markdown + YAML front matter + JSON Schema validation
-- **Template Skills**: 5 ready-to-use templates
-- **Tests**: 13/13 passing unit tests
+## Возможности v0.2.0
 
-### ⚠️ Current Limitations
-- **Sandbox**: Currently a simulation/placeholder - returns a string instead of real AI execution
-- **Dependencies**: Declared in schema but not resolved or installed
-- **Runtime Compatibility**: Metadata only - no actual runtime integration
-- **Core Module**: Minimal exports - dependency resolver not yet implemented
-- **Cloud Registry**: Not implemented - local registry only
-- **No Skill Composition**: Skills cannot depend on or call other skills
+- Валидация Markdown + YAML front matter по JSON Schema.
+- Локальный JSON-реестр, semver-зависимости, транзитивное разрешение и `skillos.lock`.
+- Установка в Claude Code, Codex, Aider и OpenHands.
+- Статические проверки безопасности и eval-сценарии.
+- Библиотечный API для TypeScript/Node.js.
+- Провайдеры LLM Anthropic и OpenAI с ключами только из переменных окружения.
 
-### 🚧 What's Coming
-See [ROADMAP.md](ROADMAP.md) for detailed plans.
+## Команды CLI
 
-## Features
+| Команда | Назначение |
+| --- | --- |
+| `skillos init <name>` | Создать заготовку навыка |
+| `skillos validate [path]` | Проверить файл навыка |
+| `skillos lint [path]` | Проверить опасные шаблоны и несогласованные разрешения |
+| `skillos publish [path]` | Добавить версию навыка в локальный реестр |
+| `skillos install <name[@range]> [--runtime <name>]` | Установить навык и его зависимости |
+| `skillos list [--json]` | Показать навыки локального реестра |
+| `skillos search <query> [--json]` | Найти навык |
+| `skillos info <name[@version]> [--json]` | Показать манифест навыка |
+| `skillos test [path] [--allow-network] [--timeout <ms>]` | Запустить eval-сценарии через настроенный LLM |
+| `skillos version <major\|minor\|patch\|semver> [path]` | Обновить semver-версию файла |
+| `skillos uninstall <name> [--runtime <name>]` | Удалить локальную и runtime-установку |
+| `skillos edit [path]` | Интерактивно изменить основные поля |
 
-### Skill Format
+Справка для любой команды доступна через `skillos <command> --help`.
 
-Skills are defined in an extended markdown format with JSON front matter:
+## Формат навыка
 
 ```markdown
 ---
-name: my-skill
+name: research
 version: 1.0.0
-description: A useful skill for AI agents
-author: Your Name
+description: Research assistant for technical topics and source synthesis
+author: Example Team
+license: MIT
 runtime:
   primary: claude-code
   compatible:
     - codex
-    - openhands
-instructions: |
-# My Skill
+permissions:
+  - read
+  - network
+security:
+  allowShell: false
+  allowNetwork: true
+  allowFileWrite: false
+dependencies:
+  source-checker: ^1.2.0
+eval:
+  scenarios:
+    - name: cite-sources
+      input: Summarize the provided sources
+      expected: Sources
+---
+# Research assistant
 
-You are a specialized AI agent that...
+Instructions for the AI agent go here. They must contain at least 50 characters.
 ```
 
-### CLI Commands
+The front matter is validated against [`src/formats/skill-schema.json`](src/formats/skill-schema.json). Dependency ranges use npm semver syntax. Installed dependency versions are recorded in `skillos.lock` in the current project.
 
-```bash
-# Initialize a new skill
-skillos init my-skill
+## Runtime integration
 
-# Install a skill from registry
-skillos install username/skill-name
+- `claude-code`: `.claude/skills/<name>/SKILL.md`
+- `codex`: a managed section in `AGENTS.md`
+- `aider`: a managed section in `CONVENTIONS.md`
+- `openhands`: `.openhands/microagents/<name>.md`
 
-# Publish a skill
-skillos publish
+Managed Codex/Aider sections are updated without replacing unrelated file content. The adapter refuses symbolic-link targets and unsafe skill names.
 
-# List available skills
-skillos list
+## LLM configuration and security
 
-# Search for skills
-skillos search "code review"
+`skillos test` sends the skill instructions and each eval input to the selected provider. Configure credentials in the environment, never in a skill manifest or repository:
 
-# Edit a skill
-skillos edit my-skill
+- Anthropic: `ANTHROPIC_API_KEY`; optional `ANTHROPIC_MODEL`.
+- OpenAI: `OPENAI_API_KEY`; optional `OPENAI_MODEL`.
+- Optional provider selector: `SKILLOS_LLM_PROVIDER=anthropic|openai`.
+
+The request runs in a child Node.js process with a bounded heap, response-size limit, and timeout. Network, shell, and file-write permissions are checked against both the skill manifest and host opt-in flags. Network execution requires `--allow-network`; the sandbox does not expose a shell or filesystem tool to the model.
+
+**Security boundary:** a child process and Node heap limit are not an operating-system sandbox. Skill instructions are sent to an LLM; SkillOS does not execute arbitrary code from the Markdown file. Review skills before use, keep API keys private, and do not treat the static linter as a complete security audit. The cloud registry and a Docker isolation backend are not part of v0.2.0.
+
+## Local registry
+
+The registry is stored at `~/.skillos/registry/registry.json` (or the platform home directory equivalent). It is local-only; publishing to it does not publish to npm or a hosted marketplace. Installation copies skills under `~/.skillos/skills/` and writes runtime-specific files in the current project.
+
+## Use as a library
+
+```typescript
+import { DependencyResolver, LocalRegistry, SkillParser } from 'skillos';
+
+const parser = new SkillParser();
+const skill = await parser.parseFile('skill.md');
+const registry = new LocalRegistry();
+const dependencies = await new DependencyResolver(registry).resolve(skill.name, skill.version);
+console.log(dependencies.order.map(item => `${item.name}@${item.version}`));
 ```
 
-### Local Registry
-
-- **JSON-based storage** for skill metadata (simple, cross-platform, no native dependencies)
-- Fast search and indexing
-- Version management
-- Download tracking
-
-### Sandbox Testing
-
-> **⚠️ Note**: The sandbox is currently a simulation/placeholder. It returns a string showing what would happen, but does not actually execute AI agents. This will be replaced with a proper isolated execution environment in future versions.
-
-- Permission checking (shell, network, file write)
-- Eval scenario testing
-- Security validation
-
-## Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/skillos/skillos.git
-cd skillos
-
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-
-# Install globally
-npm link
-```
-
-## Quick Start
-
-### Creating Your First Skill
-
-```bash
-# Initialize a new skill
-skillos init my-awesome-skill
-
-# Navigate to the skill directory
-cd my-awesome-skill
-
-# Edit skill.md
-# Customize the skill according to your needs
-
-# Publish to local registry
-skillos publish
-```
-
-### Using Template Skills
-
-SkillOS includes several template skills to get you started:
-
-- **research** - Advanced research assistant
-- **code-review** - Automated code review
-- **content-creation** - Technical writing assistant
-- **data-analysis** - Data processing and visualization
-- **personal-assistant** - Productivity and task management
-
-Copy a template from `examples/templates/` and customize it.
-
-### Listing and Searching Skills
-
-```bash
-# List all installed skills
-skillos list
-
-# Search for skills
-skillos search "research"
-```
-
-## Architecture
-
-```
-skillos/
-├── src/
-│   ├── cli/           # Command-line interface
-│   ├── core/          # Core library
-│   ├── formats/       # Skill format and parser
-│   ├── registry/      # Local and cloud registry
-│   └── sandbox/       # Execution sandbox
-├── examples/
-│   └── templates/     # Example skill templates
-└── dist/             # Compiled output
-```
-
-### Components
-
-- **CLI Layer** - User interface with commands: init, install, publish, list, search, edit
-- **Core Library** - Skill parser, validator, executor, dependency resolver (planned)
-- **Registry** - Local (JSON-based) and cloud (REST API, planned) registries
-- **Sandbox** - Execution environment (currently simulation, will be isolated in future)
-- **Formats** - JSON schema validation and markdown parsing
-
-## Skill Format Reference
-
-### Required Fields
-
-- `name` - Skill name in kebab-case
-- `version` - Semantic version (e.g., 1.0.0)
-- `description` - Short description (10-500 chars)
-- `author` - Author name or organization
-- `runtime` - Supported AI agent runtimes
-- `instructions` - Instructions for the AI agent
-
-### Optional Fields
-
-- `license` - License (default: MIT)
-- `capabilities` - List of capabilities
-- `dependencies` - Other skills this depends on (not yet resolved)
-- `permissions` - Required permissions (read, write, network, system, database)
-- `security` - Security policies
-- `eval` - Test scenarios
-- `metadata` - Tags, category, language
-
-### Runtime Compatibility
-
-Supported runtimes (metadata only, no actual integration):
-- `claude-code` - Claude Code / Devin
-- `codex` - OpenAI Codex
-- `openhands` - OpenHands
-- `aider` - Aider
-- `custom` - Custom implementations
+The public entry point exports parsers, registry clients, dependency tools, runtime adapters, sandbox types/providers, errors, and security lint helpers.
 
 ## Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Watch mode for development
-npm run dev
-
-# Run tests
-npm test
-
-# Lint code
-npm run lint
-
-# Type check
+npm ci
 npm run typecheck
-
-# Build
+npm run lint
+npm run test:coverage
 npm run build
+npm pack --dry-run
 ```
 
-## Limitations
+Supported runtime: Node.js 18, 20, and 22. See [ARCHITECTURE.md](ARCHITECTURE.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [ROADMAP.md](ROADMAP.md).
 
-This is an early MVP. Key limitations:
+## License and links
 
-1. **No actual AI execution** - Sandbox is a simulation
-2. **No dependency resolution** - Dependencies are declared but not installed
-3. **No runtime integration** - Compatibility is metadata only
-4. **Local registry only** - No cloud registry yet
-5. **No skill composition** - Skills cannot call other skills
-6. **Basic security** - No real isolation or sandboxing
+MIT — see [LICENSE](LICENSE).
 
-See [ROADMAP.md](ROADMAP.md) for plans to address these limitations.
-
-## Roadmap
-
-See [ROADMAP.md](ROADMAP.md) for detailed development plans.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
-
-We welcome contributions! Priority areas:
-- Dependency resolver implementation
-- Real sandbox with isolation
-- Additional template skills
-- Documentation improvements
-- Bug fixes
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Acknowledgments
-
-- Inspired by npm, PyPI, and other package managers
-- Built for the emerging AI agent ecosystem
-- Community-driven skill development
-
-## Contact
-
-- GitHub: https://github.com/skillos/skillos
-- Issues: https://github.com/skillos/skillos/issues
+- Repository: https://github.com/anecodw/SkillOS
+- Issues: https://github.com/anecodw/SkillOS/issues
+- npm: https://www.npmjs.com/package/skillos

@@ -9,7 +9,27 @@ runtime:
   compatible:
     - codex
     - openhands
-instructions: |
+capabilities:
+  - data-processing
+  - statistical-analysis
+  - visualization
+  - pattern-recognition
+permissions:
+  - read
+  - write
+security:
+  allowShell: false
+  allowNetwork: false
+  allowFileWrite: true
+metadata:
+  tags:
+    - data
+    - analysis
+    - statistics
+  category: productivity
+  language: en
+---
+
 # Data Analysis Assistant
 
 You are an expert data analyst specializing in data processing, statistical analysis, and visualization.
@@ -120,22 +140,3 @@ You are an expert data analyst specializing in data processing, statistical anal
 - Provide context for numbers
 - Recommend specific actions
 - Document your methodology
-capabilities:
-  - data-processing
-  - statistical-analysis
-  - visualization
-  - pattern-recognition
-permissions:
-  - read
-  - write
-security:
-  allowShell: false
-  allowNetwork: false
-  allowFileWrite: true
-metadata:
-  tags:
-    - data
-    - analysis
-    - statistics
-  category: productivity
-  language: en

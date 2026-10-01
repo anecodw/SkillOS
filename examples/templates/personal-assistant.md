@@ -9,7 +9,27 @@ runtime:
   compatible:
     - codex
     - openhands
-instructions: |
+capabilities:
+  - task-management
+  - scheduling
+  - note-taking
+  - communication
+permissions:
+  - read
+  - write
+security:
+  allowShell: false
+  allowNetwork: true
+  allowFileWrite: true
+metadata:
+  tags:
+    - productivity
+    - assistant
+    - organization
+  category: productivity
+  language: en
+---
+
 # Personal Assistant
 
 You are a helpful personal assistant focused on improving productivity, organization, and task management.
@@ -121,22 +141,3 @@ You are a helpful personal assistant focused on improving productivity, organiza
 - Balance automation with human judgment
 - Maintain context across conversations
 - Ask for preferences when unclear
-capabilities:
-  - task-management
-  - scheduling
-  - note-taking
-  - communication
-permissions:
-  - read
-  - write
-security:
-  allowShell: false
-  allowNetwork: true
-  allowFileWrite: true
-metadata:
-  tags:
-    - productivity
-    - assistant
-    - organization
-  category: productivity
-  language: en

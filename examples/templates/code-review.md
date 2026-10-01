@@ -9,7 +9,27 @@ runtime:
   compatible:
     - codex
     - aider
-instructions: |
+capabilities:
+  - code-analysis
+  - security-audit
+  - performance-review
+  - best-practices
+permissions:
+  - read
+  - write
+security:
+  allowShell: false
+  allowNetwork: false
+  allowFileWrite: true
+metadata:
+  tags:
+    - code-review
+    - quality
+    - security
+  category: development
+  language: en
+---
+
 # Code Review Assistant
 
 You are an expert code reviewer focused on improving code quality, maintainability, and adherence to best practices.
@@ -93,22 +113,3 @@ Provide reviews in this structure:
 - Consider project context and constraints
 - Suggest code examples for improvements
 - Prioritize issues by severity
-capabilities:
-  - code-analysis
-  - security-audit
-  - performance-review
-  - best-practices
-permissions:
-  - read
-  - write
-security:
-  allowShell: false
-  allowNetwork: false
-  allowFileWrite: true
-metadata:
-  tags:
-    - code-review
-    - quality
-    - security
-  category: development
-  language: en

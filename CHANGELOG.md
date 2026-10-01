@@ -1,74 +1,36 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes are documented here. This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.2.0] - 2026-10-01
+
+### Added
+- Semver-aware transitive dependency resolution, cycle detection, and `skillos.lock` generation.
+- Dependency installation with explicit errors for missing or conflicting versions.
+- Anthropic and OpenAI LLM providers with environment-based credentials and a test-only injectable mock.
+- Child-process execution with timeout, V8 heap bound, restricted environment, and output-size limit.
+- Runtime adapters for Claude Code, Codex, Aider, and OpenHands.
+- CLI commands `test`, `validate`, `lint`, `version`, `uninstall`, and `info`; JSON output for `list`, `search`, and `info`.
+- Public TypeScript API, eight validated templates, cross-platform CI, release automation, and GitHub community/security files.
+- CLI integration tests and a Jest coverage gate of at least 80% for statements, lines, and functions.
+
+### Changed
+- Package metadata, repository links, npm entry points, and README now describe the implemented v0.2.0 behavior.
+- Local registry remains JSON-based; compatibility claims now distinguish generated runtime files from runtime application installation.
+
+### Fixed
+- Skill installation validates names and refuses path traversal and symbolic-link destinations.
+- Dependency resolution chooses versions using semver ranges and detects cycles before installation.
+- Removed the tracked TypeScript build-info artifact and ignored generated files.
+
+### Security
+- Sandbox checks manifest permissions against explicit host opt-ins and does not execute arbitrary code from Markdown.
+- Documented that child-process separation is not a kernel-level security boundary.
 
 ## [0.1.0] - 2026-10-01
 
 ### Added
-- Initial MVP release of SkillOS
-- CLI commands: init, install, publish, list, search, edit
-- Local JSON-based registry for skill storage
-- Skill parser with markdown + YAML front matter + JSON Schema validation
-- Sandbox with Node.js vm isolation for basic execution isolation
-- Dependency resolver for skill dependency management
-- Custom error classes for better error handling
-- 5 template skills: research, code-review, content-creation, data-analysis, personal-assistant
-- Unit tests (13/13 passing)
-- TypeScript implementation with full type safety
-- Skill format specification with required and optional fields
-- Runtime compatibility metadata (claude-code, codex, openhands, aider, custom)
-- Permission system (read, write, network, system, database)
-- Eval scenario support for skill testing
-- Security policy declarations
-- Core module with useful exports (DependencyResolver, error classes, Sandbox)
+- Initial MVP with a CLI, local JSON registry, Markdown/YAML skill parser, five example templates, and TypeScript build.
 
-### Known Limitations
-- Sandbox uses Node.js vm for basic isolation but is NOT production-ready
-- No actual AI execution - sandbox returns simulated output
-- Dependency resolver implemented but not yet integrated into CLI commands
-- Runtime compatibility is metadata only - no actual integration
-- No skill composition - skills cannot depend on or call other skills
-- Local registry only - no cloud registry
-- Basic security - vm isolation is not sufficient for untrusted code
-
-### Documentation
-- README.md with installation and usage instructions
-- ARCHITECTURE.md with system design and decisions
-- PROJECT_STRUCTURE.md with file organization
-- ROADMAP.md with development plans
-- CONTRIBUTING.md with contribution guidelines
-
-## [Unreleased]
-
-### Planned for v0.2.0
-- Integrate dependency resolver into CLI commands
-- Registry enhancements (update, upgrade, uninstall commands)
-- CLI UX improvements (better error messages, progress indicators)
-- Integration tests for end-to-end workflows
-- Test coverage for new modules (errors, dependency-resolver, sandbox)
-- Skill execution with actual AI runtime integration
-
-### Planned for v0.3.0
-- Cloud registry implementation
-- Authentication and authorization
-- Skill rating and review system
-- Download statistics
-
-### Planned for v0.4.0
-- Docker-based sandbox isolation
-- Runtime-specific execution adapters
-- Advanced security policies
-- Resource limiting
-
-### Planned for v0.5.0+
-- Skill Studio (web-based editor)
-- Skill graph and composition
-- Skill marketplace
-- Enterprise features
-
----
-
-[0.1.0]: https://github.com/skillos/skillos/releases/tag/v0.1.0
+[0.2.0]: https://github.com/anecodw/SkillOS/releases/tag/v0.2.0
+[0.1.0]: https://github.com/anecodw/SkillOS/releases/tag/v0.1.0

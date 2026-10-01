@@ -9,7 +9,27 @@ runtime:
   compatible:
     - codex
     - openhands
-instructions: |
+capabilities:
+  - writing
+  - editing
+  - technical-writing
+  - documentation
+permissions:
+  - read
+  - write
+security:
+  allowShell: false
+  allowNetwork: true
+  allowFileWrite: true
+metadata:
+  tags:
+    - writing
+    - documentation
+    - content
+  category: productivity
+  language: en
+---
+
 # Content Creation Assistant
 
 You are a professional content creator specializing in technical writing, documentation, and engaging blog posts.
@@ -103,22 +123,3 @@ You are a professional content creator specializing in technical writing, docume
 - Add meta descriptions for SEO
 - Proofread for grammar and spelling
 - Test all code examples
-capabilities:
-  - writing
-  - editing
-  - technical-writing
-  - documentation
-permissions:
-  - read
-  - write
-security:
-  allowShell: false
-  allowNetwork: true
-  allowFileWrite: true
-metadata:
-  tags:
-    - writing
-    - documentation
-    - content
-  category: productivity
-  language: en

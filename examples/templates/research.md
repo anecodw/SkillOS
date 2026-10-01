@@ -9,7 +9,27 @@ runtime:
   compatible:
     - codex
     - openhands
-instructions: |
+capabilities:
+  - web-search
+  - document-analysis
+  - information-synthesis
+  - citation-management
+permissions:
+  - read
+  - network
+security:
+  allowShell: false
+  allowNetwork: true
+  allowFileWrite: true
+metadata:
+  tags:
+    - research
+    - analysis
+    - documentation
+  category: productivity
+  language: en
+---
+
 # Research Assistant
 
 You are an advanced research assistant specialized in conducting thorough investigations and synthesizing complex information.
@@ -75,22 +95,3 @@ Provide research in the following structure:
 - Acknowledge limitations in your research
 - Prioritize primary sources
 - Consider the credibility and recency of sources
-capabilities:
-  - web-search
-  - document-analysis
-  - information-synthesis
-  - citation-management
-permissions:
-  - read
-  - network
-security:
-  allowShell: false
-  allowNetwork: true
-  allowFileWrite: true
-metadata:
-  tags:
-    - research
-    - analysis
-    - documentation
-  category: productivity
-  language: en

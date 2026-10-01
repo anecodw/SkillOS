@@ -1,232 +1,36 @@
 # SkillOS Project Structure
 
-```
+```text
 skillos/
-├── src/                          # Source code
-│   ├── cli/                      # Command-line interface
-│   │   ├── index.ts              # Main CLI entry point
-│   │   └── commands/             # CLI command implementations
-│   │       ├── init.ts           # Initialize new skill
-│   │       ├── install.ts        # Install skill from registry
-│   │       ├── publish.ts        # Publish skill to registry
-│   │       ├── list.ts           # List all skills
-│   │       ├── search.ts         # Search skills
-│   │       └── edit.ts           # Edit skill file
-│   ├── core/                     # Core library
-│   │   ├── index.ts             # Core exports
-│   │   ├── errors.ts            # Custom error classes
-│   │   └── dependency-resolver.ts # Dependency resolution
-│   ├── formats/                  # Skill format and validation
-│   │   ├── index.ts              # Format exports
-│   │   ├── skill-schema.json     # JSON Schema for validation
-│   │   ├── skill-parser.ts       # Parser for markdown + YAML
-│   │   └── skill-parser.test.ts  # Parser tests
-│   ├── registry/                 # Registry implementations
-│   │   ├── index.ts              # Registry exports
-│   │   ├── types.ts              # Registry type definitions
-│   │   ├── local-registry.ts     # Local JSON-based registry
-│   │   ├── local-registry.test.ts # Registry tests
-│   │   └── cloud-registry.ts     # Cloud registry client (placeholder)
-│   ├── sandbox/                  # Execution sandbox
-│   │   ├── index.ts              # Sandbox exports
-│   │   ├── types.ts              # Sandbox type definitions
-│   │   └── basic-sandbox.ts      # Basic sandbox implementation
-│   └── index.ts                  # Main library entry point
-├── examples/                     # Example skills
-│   └── templates/                 # Skill templates
-│       ├── research.md           # Research assistant
-│       ├── code-review.md        # Code review assistant
-│       ├── content-creation.md   # Content creation assistant
-│       ├── data-analysis.md      # Data analysis assistant
-│       └── personal-assistant.md # Personal assistant
-├── dist/                         # Compiled output (generated)
-│   ├── cli/
-│   ├── core/
-│   ├── formats/
-│   ├── registry/
-│   ├── sandbox/
-│   └── index.js
-├── node_modules/                 # Dependencies (generated)
-├── .eslintrc.json               # ESLint configuration
-├── .gitignore                   # Git ignore rules
-├── ARCHITECTURE.md              # Architecture documentation
-├── CONTRIBUTING.md              # Contribution guidelines
-├── jest.config.js               # Jest configuration
-├── LICENSE                      # MIT License
-├── package.json                 # Project configuration
-├── package-lock.json            # Dependency lock file
-├── README.md                    # Project documentation
-├── ROADMAP.md                   # Development roadmap
-├── tsconfig.json                # TypeScript configuration
-└── PROJECT_STRUCTURE.md         # This file
+├── .github/                 CI, release workflow, issue/PR templates, security policy
+├── examples/templates/      Eight valid Markdown/YAML skill templates
+├── src/
+│   ├── cli/                 Commander CLI and command lifecycle tests
+│   ├── core/                Dependency resolver, lockfile, errors, security linter
+│   ├── formats/             Skill interface, parser, schema, template tests
+│   ├── registry/            Local JSON registry and cloud read client
+│   ├── runtimes/            Claude Code, Codex, Aider, OpenHands adapters
+│   ├── sandbox/             LLM providers, child-process runner, eval tests
+│   └── index.ts             Public TypeScript API
+├── .gitignore
+├── ARCHITECTURE.md
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── jest.config.js
+├── package.json
+├── package-lock.json
+├── README.md
+├── ROADMAP.md
+└── tsconfig.json
 ```
 
-## Key Files
+## Public package
 
-### Configuration Files
+- `dist/index.js` and `dist/index.d.ts` expose the library.
+- `dist/cli/index.js` exposes the `skillos` binary.
+- `dist/sandbox/llm-worker.js` is the child-process entrypoint.
+- `npm pack --dry-run` includes only `dist/`, README, changelog, and license; tests and source-only development files are excluded.
 
-- **package.json** - Project metadata, dependencies, scripts
-- **tsconfig.json** - TypeScript compiler configuration
-- **jest.config.js** - Jest test runner configuration
-- **.eslintrc.json** - ESLint linting rules
-- **.gitignore** - Files to exclude from git
+## Development
 
-### Documentation Files
-
-- **README.md** - Main project documentation
-- **ARCHITECTURE.md** - System architecture and design decisions
-- **ROADMAP.md** - Development roadmap and milestones
-- **CONTRIBUTING.md** - Contribution guidelines
-- **LICENSE** - MIT license
-- **PROJECT_STRUCTURE.md** - This file
-
-### Source Code
-
-#### CLI (`src/cli/`)
-- Entry point for user interaction
-- Implements all CLI commands
-- Uses Commander.js for parsing
-
-#### Formats (`src/formats/`)
-- Defines skill file format
-- JSON Schema for validation
-- Parser for markdown + YAML front matter
-- Comprehensive test coverage
-
-#### Registry (`src/registry/`)
-- Local JSON-based registry implementation
-- Cloud registry client (placeholder)
-- Type definitions for registry operations
-- Test coverage for local registry
-
-#### Sandbox (`src/sandbox/`)
-- Basic sandbox for skill execution
-- Security policy enforcement
-- Eval scenario testing
-- Type definitions
-
-### Examples (`examples/templates/`)
-
-Five ready-to-use skill templates:
-1. **research** - Advanced research assistant
-2. **code-review** - Automated code review
-3. **content-creation** - Technical writing
-4. **data-analysis** - Data processing
-5. **personal-assistant** - Productivity assistant
-
-## Build Artifacts
-
-The `dist/` directory contains compiled JavaScript files generated by TypeScript compiler. This directory is created during build and should not be manually edited.
-
-## Getting Started
-
-1. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-2. **Build the project**
-   ```bash
-   npm run build
-   ```
-
-3. **Run tests**
-   ```bash
-   npm test
-   ```
-
-4. **Use the CLI**
-   ```bash
-   npm run cli -- init my-skill
-   ```
-
-## Development Workflow
-
-1. Make changes in `src/`
-2. Run `npm run build` to compile
-3. Run `npm test` to verify
-4. Run `npm run lint` to check code style
-5. Commit changes
-
-## Publishing
-
-1. Update version in `package.json`
-2. Build: `npm run build`
-3. Test: `npm test`
-4. Publish: `npm publish`
-
-## Dependencies
-
-### Runtime Dependencies
-- commander - CLI framework
-- chalk - Terminal colors
-- ora - Loading spinners
-- inquirer - Interactive prompts
-- axios - HTTP client
-- marked - Markdown parser
-- js-yaml - YAML parser
-- ajv - JSON Schema validator
-- semver - Semantic versioning
-- fs-extra - File system utilities
-- glob - File pattern matching
-
-### Development Dependencies
-- typescript - TypeScript compiler
-- @types/* - Type definitions
-- jest - Test runner
-- ts-jest - TypeScript Jest preprocessor
-- eslint - Linter
-- @typescript-eslint/* - TypeScript ESLint plugins
-
-## File Sizes
-
-Approximate sizes (before minification):
-- CLI: ~2KB
-- Parser: ~2.5KB
-- Registry: ~4.5KB
-- Sandbox: ~2KB
-- Total source: ~11KB
-- Total with dependencies: ~270KB (node_modules)
-
-## Performance Considerations
-
-- Registry uses JSON file for simplicity (can migrate to SQLite later)
-- Skill parsing is on-demand (can add caching later)
-- File operations are synchronous (can add async later)
-- Search is linear (can add indexing later)
-
-## Security Notes
-
-- Skills declare required permissions
-- Sandbox enforces security policies
-- File system access is restricted
-- Network access is opt-in
-- Shell execution is disabled by default
-
-## Extension Points
-
-1. **New runtimes** - Add to schema enum
-2. **New permissions** - Add to permissions array
-3. **Cloud registry** - Implement CloudRegistry
-4. **Advanced sandbox** - Enhance BasicSandbox
-5. **Skill composition** - Add dependency resolver
-
-## Testing Coverage
-
-- Unit tests for parser (7 tests)
-- Unit tests for registry (6 tests)
-- Total: 13 tests, all passing
-- New modules (errors, dependency-resolver, enhanced sandbox) need test coverage
-- Coverage can be improved with integration tests
-
-## Known Limitations
-
-1. No cloud registry yet
-2. Sandbox uses Node.js vm (not production-ready isolation)
-3. Dependency resolver implemented but not integrated into CLI yet
-4. No skill composition (skills cannot call other skills)
-5. Linear search in registry
-6. No caching mechanism
-7. Synchronous file operations
-
-See ROADMAP.md for planned improvements.
+Install with `npm ci`. Run `npm run typecheck`, `npm run lint`, `npm run test:coverage`, and `npm run build`. Generated `dist/`, coverage output, and `tsconfig.tsbuildinfo` are ignored by Git.
