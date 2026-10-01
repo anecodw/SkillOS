@@ -5,6 +5,10 @@ export interface SandboxConfig {
   allowNetwork: boolean;
   allowFileWrite: boolean;
   restrictedPaths?: string[];
+  timeoutMs?: number;
+  maxInputBytes?: number;
+  maxOutputBytes?: number;
+  env?: NodeJS.ProcessEnv;
 }
 
 export interface EvalScenario {
@@ -20,8 +24,18 @@ export interface EvalResult {
   error?: string;
 }
 
+export interface LLMRequest {
+  instructions: string;
+  input: string;
+  model?: string;
+}
+
+export interface LLMProvider {
+  generate(request: LLMRequest): Promise<string>;
+}
+
 export interface Sandbox {
-  configure(config: SandboxConfig): void;
+  configure(config: Partial<SandboxConfig>): void;
   execute(skill: Skill, input: string): Promise<string>;
   eval(skill: Skill, scenarios: EvalScenario[]): Promise<EvalResult[]>;
 }

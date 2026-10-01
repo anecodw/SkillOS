@@ -61,6 +61,15 @@ Test instructions for the skill that are longer than 50 characters to meet schem
       const skill = parser.parse(content);
       expect(skill.name).toBe('test');
     });
+
+    it('should reject invalid semantic versions and dependency ranges', () => {
+      const valid = {
+        name: 'test-skill', version: '01.0.0', description: 'A sufficiently long description', author: 'Test',
+        runtime: { primary: 'claude-code' }, instructions: 'A sufficiently long instruction body for schema validation.'
+      };
+      expect(parser.validate(valid).valid).toBe(false);
+      expect(parser.validate({ ...valid, version: '1.0.0', dependencies: { '../escape': '^1.0.0', dependency: 'not-semver' } }).errors).toHaveLength(2);
+    });
   });
 
   describe('stringify', () => {

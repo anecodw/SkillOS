@@ -6,12 +6,13 @@
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z0-9-]+$",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 64,
       "description": "Skill name in kebab-case"
     },
     "version": {
       "type": "string",
-      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?$",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?(\\+[a-zA-Z0-9.-]+)?$",
       "description": "Semantic version following semver"
     },
     "description": {
@@ -89,7 +90,7 @@
         },
         "allowFileWrite": {
           "type": "boolean",
-          "default": true
+          "default": false
         },
         "restrictedPaths": {
           "type": "array",
@@ -106,10 +107,11 @@
           "type": "array",
           "items": {
             "type": "object",
+            "required": ["name", "input", "expected"],
             "properties": {
-              "name": { "type": "string" },
-              "input": { "type": "string" },
-              "expected": { "type": "string" }
+              "name": { "type": "string", "minLength": 1 },
+              "input": { "type": "string", "minLength": 1 },
+              "expected": { "type": "string", "minLength": 1 }
             }
           }
         }

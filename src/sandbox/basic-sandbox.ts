@@ -1,205 +1,140 @@
-import { Sandbox, SandboxConfig, EvalScenario, EvalResult } from './types';
+import { fork, ChildProcess } from 'child_process';
+import path from 'path';
 import { Skill } from '../formats';
-import { PermissionDeniedError, ExecutionTimeoutError } from '../core/errors';
-import vm from 'vm';
+import { PermissionDeniedError, ExecutionTimeoutError, SandboxError } from '../core/errors';
+import { LLMProvider, LLMRequest, Sandbox, SandboxConfig, EvalScenario, EvalResult } from './types';
+import { createLLMProvider } from './llm-provider';
 
-/**
- * Basic Sandbox with Node.js vm isolation
- * 
- * ⚠️ WARNING: This sandbox provides basic isolation using Node.js vm module,
- * but is NOT production-ready. It does not provide complete security isolation.
- * For production use, consider Docker containers, vm2, or other proper isolation solutions.
- * 
- * Current limitations:
- * - Does not isolate the process itself
- * - Does not limit CPU or memory usage effectively
- * - Node.js vm can still access some global objects
- * - Not suitable for untrusted code execution
- * 
- * This is intended for development and testing purposes only.
- */
+const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_OUTPUT_LIMIT = 1024 * 1024;
+const DEFAULT_INPUT_LIMIT = 1024 * 1024;
+
 export class BasicSandbox implements Sandbox {
-  private config: SandboxConfig;
-  private defaultTimeout: number = 5000; // 5 seconds default timeout
+  private config: SandboxConfig = {
+    allowShell: false,
+    allowNetwork: false,
+    allowFileWrite: false,
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+    maxInputBytes: DEFAULT_INPUT_LIMIT,
+    maxOutputBytes: DEFAULT_OUTPUT_LIMIT
+  };
 
-  constructor() {
-    this.config = {
-      allowShell: false,
-      allowNetwork: false,
-      allowFileWrite: true
-    };
-  }
+  constructor(private readonly provider?: LLMProvider) {}
 
   configure(config: Partial<SandboxConfig>): void {
+    if (config.timeoutMs !== undefined && (!Number.isSafeInteger(config.timeoutMs) || config.timeoutMs < 1 || config.timeoutMs > 10 * 60_000)) {
+      throw new RangeError('Timeout must be an integer between 1 and 600000 milliseconds');
+    }
+    for (const [name, value] of [['maxInputBytes', config.maxInputBytes], ['maxOutputBytes', config.maxOutputBytes]] as const) {
+      if (value !== undefined && (!Number.isSafeInteger(value) || value < 1 || value > 10 * 1024 * 1024)) {
+        throw new RangeError(`${name} must be an integer between 1 and 10485760`);
+      }
+    }
+    for (const restrictedPath of config.restrictedPaths ?? []) {
+      if (!path.isAbsolute(restrictedPath)) throw new SandboxError(`Restricted path must be absolute: ${restrictedPath}`);
+    }
     this.config = { ...this.config, ...config };
   }
 
-  /**
-   * Execute a skill with basic vm isolation
-   */
   async execute(skill: Skill, input: string): Promise<string> {
-    // Check security permissions
+    if (typeof input !== 'string') throw new TypeError('Sandbox input must be a string');
+    const inputLimit = this.config.maxInputBytes ?? DEFAULT_INPUT_LIMIT;
+    if (Buffer.byteLength(input, 'utf8') > inputLimit) throw new SandboxError(`Input exceeds configured limit of ${inputLimit} bytes`);
+    if (!this.provider) createLLMProvider(this.config.env ?? process.env);
     this.checkPermissions(skill);
-
-    // Create isolated context
-    const context = this.createIsolatedContext(skill, input);
-
-    try {
-      // Execute in vm with timeout
-      const script = new vm.Script(`
-        // Simulated skill execution
-        const result = {
-          skill: '${skill.name}',
-          version: '${skill.version}',
-          input: input,
-          instructions: instructions.substring(0, 200) + '...',
-          timestamp: new Date().toISOString()
-        };
-        JSON.stringify(result, null, 2);
-      `);
-
-      const startTime = Date.now();
-      const result = script.runInNewContext(context, {
-        timeout: this.defaultTimeout
-      });
-      const elapsed = Date.now() - startTime;
-
-      if (elapsed >= this.defaultTimeout) {
-        throw new ExecutionTimeoutError(this.defaultTimeout);
-      }
-
-      return result;
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('Script execution timed out')) {
-        throw new ExecutionTimeoutError(this.defaultTimeout);
-      }
-      throw error;
-    }
+    const request: LLMRequest = { instructions: skill.instructions, input };
+    const result = this.provider
+      ? await this.provider.generate(request)
+      : await this.executeInChild(request);
+    const limit = this.config.maxOutputBytes ?? DEFAULT_OUTPUT_LIMIT;
+    if (Buffer.byteLength(result, 'utf8') > limit) throw new SandboxError(`Response exceeds configured limit of ${limit} bytes`);
+    return result;
   }
 
-  /**
-   * Run eval scenarios for a skill
-   */
   async eval(skill: Skill, scenarios: EvalScenario[]): Promise<EvalResult[]> {
     const results: EvalResult[] = [];
-
     for (const scenario of scenarios) {
       try {
         const output = await this.execute(skill, scenario.input);
-        
-        // Simple check if expected output is contained in actual output
-        const passed = output.toLowerCase().includes(scenario.expected.toLowerCase());
-        
         results.push({
           scenario: scenario.name,
-          passed,
-          output,
-          error: undefined
+          passed: output.toLowerCase().includes(scenario.expected.toLowerCase()),
+          output
         });
       } catch (error) {
-        results.push({
-          scenario: scenario.name,
-          passed: false,
-          output: '',
-          error: error instanceof Error ? error.message : String(error)
-        });
+        results.push({ scenario: scenario.name, passed: false, output: '', error: error instanceof Error ? error.message : String(error) });
       }
     }
-
     return results;
   }
 
-  /**
-   * Check if skill's security requirements are met by sandbox config
-   */
-  private checkPermissions(skill: Skill): void {
-    if (skill.security?.allowShell && !this.config.allowShell) {
-      throw new PermissionDeniedError('shell execution');
+  setTimeout(timeoutMs: number): void {
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10 * 60_000) {
+      throw new RangeError('Timeout must be an integer between 1 and 600000 milliseconds');
     }
-
-    if (skill.security?.allowNetwork && !this.config.allowNetwork) {
-      throw new PermissionDeniedError('network access');
-    }
-
-    if (skill.security?.allowFileWrite === false && this.config.allowFileWrite) {
-      // Skill explicitly forbids file write, but sandbox allows it
-      // This is a warning, not an error
-      console.warn(`Warning: Skill '${skill.name}' forbids file write, but sandbox allows it`);
-    }
+    this.config.timeoutMs = timeoutMs;
   }
 
-  /**
-   * Create an isolated vm context
-   */
-  private createIsolatedContext(skill: Skill, input: string): Record<string, any> {
-    // Create a minimal, isolated context
-    const context: Record<string, any> = {
-      // Basic utilities
-      console: {
-        log: (...args: any[]) => console.log('[Sandbox]', ...args),
-        warn: (...args: any[]) => console.warn('[Sandbox]', ...args),
-        error: (...args: any[]) => console.error('[Sandbox]', ...args)
-      },
-      
-      // Input data
-      input: input,
-      instructions: skill.instructions,
-      
-      // Skill metadata
-      skill: {
-        name: skill.name,
-        version: skill.version,
-        author: skill.author,
-        description: skill.description
-      },
-      
-      // Date object (safe)
-      Date: Date,
-      
-      // JSON (safe)
-      JSON: JSON,
-      
-      // Math (safe)
-      Math: Math,
-      
-      // Safe string manipulation
-      String: String,
-      Number: Number,
-      Boolean: Boolean,
-      Array: Array,
-      Object: Object
-    };
-
-    // Conditionally add unsafe capabilities based on config
-    if (this.config.allowShell) {
-      console.warn('⚠️ WARNING: Shell execution is enabled in sandbox. This is not secure.');
-      // In a real implementation, you would add a safe shell wrapper here
-    }
-
-    if (this.config.allowNetwork) {
-      console.warn('⚠️ WARNING: Network access is enabled in sandbox. This is not secure.');
-      // In a real implementation, you would add a safe HTTP client here
-    }
-
-    if (this.config.allowFileWrite) {
-      console.warn('⚠️ WARNING: File write is enabled in sandbox. This is not secure.');
-      // In a real implementation, you would add a safe file system wrapper here
-    }
-
-    return context;
-  }
-
-  /**
-   * Set execution timeout
-   */
-  setTimeout(timeout: number): void {
-    this.defaultTimeout = timeout;
-  }
-
-  /**
-   * Get current sandbox configuration
-   */
   getConfig(): SandboxConfig {
     return { ...this.config };
+  }
+
+  private checkPermissions(skill: Skill): void {
+    const declared = new Set(skill.permissions ?? []);
+    const requestsShell = skill.security?.allowShell === true || declared.has('system');
+    const requestsNetwork = skill.security?.allowNetwork === true || declared.has('network');
+    const requestsWrite = skill.security?.allowFileWrite === true || declared.has('write');
+    if (requestsShell && !this.config.allowShell) throw new PermissionDeniedError('shell execution');
+    if (requestsNetwork && !this.config.allowNetwork) throw new PermissionDeniedError('network access; opt in with allowNetwork');
+    if (requestsWrite && !this.config.allowFileWrite) throw new PermissionDeniedError('file write; opt in with allowFileWrite');
+    if (!this.provider && !requestsNetwork) {
+      throw new PermissionDeniedError('network access is required for the configured remote LLM provider');
+    }
+  }
+
+  private executeInChild(request: LLMRequest): Promise<string> {
+    const workerPath = path.join(__dirname, 'llm-worker.js');
+    const envKeys = ['ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'OPENAI_API_KEY', 'OPENAI_MODEL', 'SKILLOS_LLM_PROVIDER'];
+    const childEnv: NodeJS.ProcessEnv = {};
+    for (const key of envKeys) {
+      const value = (this.config.env ?? process.env)[key];
+      if (value) childEnv[key] = value;
+    }
+    if (process.env.PATH) childEnv.PATH = process.env.PATH;
+    if (process.env.SystemRoot) childEnv.SystemRoot = process.env.SystemRoot;
+    const timeoutMs = this.config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const child: ChildProcess = fork(workerPath, [], {
+      env: childEnv,
+      execArgv: ['--max-old-space-size=128'],
+      stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+      serialization: 'json'
+    });
+    return new Promise((resolve, reject) => {
+      let finished = false;
+      const finish = (error?: Error, output?: string): void => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        child.removeAllListeners();
+        if (error) reject(error);
+        else resolve(output ?? '');
+      };
+      const timer = setTimeout(() => {
+        child.kill('SIGKILL');
+        finish(new ExecutionTimeoutError(timeoutMs));
+      }, timeoutMs);
+      child.once('message', (message: { result?: unknown; error?: unknown }) => {
+        if (typeof message.error === 'string') finish(new SandboxError(message.error));
+        else if (typeof message.result === 'string') finish(undefined, message.result);
+        else finish(new SandboxError('LLM worker returned an invalid response'));
+      });
+      child.once('error', error => finish(new SandboxError(`Could not start worker: ${error.message}`)));
+      child.once('exit', (code, signal) => {
+        if (!finished) finish(new SandboxError(`LLM worker exited unexpectedly (code ${code}, signal ${signal})`));
+      });
+      child.send(request, error => {
+        if (error) finish(new SandboxError(`Could not send request to worker: ${error.message}`));
+      });
+    });
   }
 }

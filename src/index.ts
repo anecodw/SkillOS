@@ -1,5 +1,28 @@
-export { SkillParser, Skill } from './formats';
+export { SkillParser, skillSchema } from './formats';
+export type { Skill } from './formats';
 export { LocalRegistry, CloudRegistry } from './registry';
-export { BasicSandbox } from './sandbox';
-export type { RegistryClient, SkillPackage, SkillSearchResult } from './registry';
-export type { Sandbox, SandboxConfig, EvalScenario, EvalResult } from './sandbox';
+export type { RegistryClient, RegistryConfig, SkillPackage, SkillSearchResult } from './registry';
+export { BasicSandbox, AnthropicProvider, OpenAIProvider, MockLLMProvider, createLLMProvider } from './sandbox';
+export type { Sandbox, SandboxConfig, EvalScenario, EvalResult, LLMProvider, LLMRequest } from './sandbox';
+export {
+  DependencyResolver,
+  createLockfile,
+  writeLockfile,
+  lintSkill,
+  SkillOSError,
+  ParseError,
+  ValidationError,
+  RegistryError,
+  SkillNotFoundError,
+  VersionConflictError,
+  DependencyError,
+  CircularDependencyError,
+  DependencyNotFoundError,
+  SandboxError,
+  PermissionDeniedError,
+  ExecutionTimeoutError,
+  SecurityError
+} from './core';
+export type { DependencyNode, ResolutionResult, SkillLockfile, SkillLintIssue } from './core';
+export { installForRuntime, uninstallFromRuntime, runtimeNames } from './runtimes';
+export type { RuntimeName } from './runtimes';

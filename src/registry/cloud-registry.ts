@@ -3,60 +3,38 @@ import { RegistryClient, SkillPackage, SkillSearchResult } from './types';
 import { Skill } from '../formats';
 
 export class CloudRegistry implements RegistryClient {
-  private baseUrl: string;
-  private apiKey?: string;
-
-  constructor(baseUrl: string = 'https://registry.skillos.io', apiKey?: string) {
-    this.baseUrl = baseUrl;
-    this.apiKey = apiKey;
-  }
+  constructor(private readonly baseUrl = 'https://registry.skillos.io', private readonly apiKey?: string) {}
 
   private getHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    };
-    
-    if (this.apiKey) {
-      headers['Authorization'] = `Bearer ${this.apiKey}`;
-    }
-    
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
     return headers;
   }
 
-  async install(skillName: string, version?: string): Promise<void> {
-    const url = `${this.baseUrl}/api/v1/skills/${skillName}${version ? `/${version}` : ''}/download`;
-    const response = await axios.get(url, { headers: this.getHeaders() });
-    
-    // Implementation would download and install the skill
-    // For now, this is a placeholder
+  async install(_skillName: string, _version?: string): Promise<void> {
+    throw new Error('CloudRegistry download installation is not implemented; use the local registry.');
   }
 
-  async publish(skillPath: string): Promise<void> {
-    // Implementation would upload the skill file
-    // For now, this is a placeholder
-    throw new Error('Cloud registry publish not yet implemented');
+  async publish(_skillPath: string): Promise<void> {
+    throw new Error('CloudRegistry publish is not implemented; use the local registry.');
   }
 
   async search(query: string): Promise<SkillSearchResult[]> {
-    const url = `${this.baseUrl}/api/v1/skills/search?q=${encodeURIComponent(query)}`;
-    const response = await axios.get(url, { headers: this.getHeaders() });
-    return response.data;
+    const response = await axios.get(`${this.baseUrl}/api/v1/skills/search?q=${encodeURIComponent(query)}`, { headers: this.getHeaders() });
+    return response.data as SkillSearchResult[];
   }
 
   async list(): Promise<SkillPackage[]> {
-    const url = `${this.baseUrl}/api/v1/skills`;
-    const response = await axios.get(url, { headers: this.getHeaders() });
-    return response.data;
+    const response = await axios.get(`${this.baseUrl}/api/v1/skills`, { headers: this.getHeaders() });
+    return response.data as SkillPackage[];
   }
 
   async getSkill(name: string, version: string): Promise<Skill> {
-    const url = `${this.baseUrl}/api/v1/skills/${name}/${version}`;
-    const response = await axios.get(url, { headers: this.getHeaders() });
-    return response.data;
+    const response = await axios.get(`${this.baseUrl}/api/v1/skills/${encodeURIComponent(name)}/${encodeURIComponent(version)}`, { headers: this.getHeaders() });
+    return response.data as Skill;
   }
 
-  async uninstall(skillName: string): Promise<void> {
-    // Implementation would remove the skill from local installation
-    // For now, this is a placeholder
+  async uninstall(_skillName: string): Promise<void> {
+    throw new Error('CloudRegistry uninstall is not implemented; use the local registry.');
   }
 }
