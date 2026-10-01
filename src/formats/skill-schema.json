@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SkillOS Skill Definition",
+  "type": "object",
+  "required": ["name", "version", "description", "author", "runtime", "instructions"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Skill name in kebab-case"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.-]+)?$",
+      "description": "Semantic version following semver"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500,
+      "description": "Short description of the skill"
+    },
+    "author": {
+      "type": "string",
+      "description": "Author name or organization"
+    },
+    "license": {
+      "type": "string",
+      "default": "MIT",
+      "description": "License for the skill"
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Supported AI agent runtimes",
+      "required": ["primary"],
+      "properties": {
+        "primary": {
+          "type": "string",
+          "enum": ["claude-code", "codex", "openhands", "aider", "custom"],
+          "description": "Primary runtime this skill is designed for"
+        },
+        "compatible": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["claude-code", "codex", "openhands", "aider", "custom"]
+          },
+          "description": "Additional compatible runtimes"
+        }
+      }
+    },
+    "instructions": {
+      "type": "string",
+      "minLength": 50,
+      "description": "Instructions for the AI agent"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of capabilities this skill provides"
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Other skills this skill depends on"
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["read", "write", "network", "system", "database"]
+      },
+      "description": "Required permissions for execution"
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "allowShell": {
+          "type": "boolean",
+          "default": false
+        },
+        "allowNetwork": {
+          "type": "boolean",
+          "default": false
+        },
+        "allowFileWrite": {
+          "type": "boolean",
+          "default": true
+        },
+        "restrictedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "eval": {
+      "type": "object",
+      "properties": {
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "input": { "type": "string" },
+              "expected": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "category": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string",
+          "default": "en"
+        }
+      }
+    }
+  }
+}
