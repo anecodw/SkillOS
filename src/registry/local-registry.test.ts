@@ -88,6 +88,57 @@ describe('LocalRegistry', () => {
     it('should throw error for non-existent skill', async () => {
       await expect(registry.getSkill('nonexistent', '1.0.0')).rejects.toThrow('not found');
     });
+
+    it('should resolve semver ranges and reject unsafe skill names', async () => {
+      const skill = {
+        name: 'range-skill', version: '1.4.0', description: 'A versioned skill for range tests', author: 'Test',
+        runtime: { primary: 'claude-code' }, instructions: 'A sufficiently long instruction body for registry validation.'
+      };
+      const file = path.join(tempDir, 'range.md');
+      await skillParser.writeToFile(skill, file);
+      await registry.publish(file);
+      await expect(registry.getSkill('range-skill', '^1.2.0')).resolves.toMatchObject({ version: '1.4.0' });
+      await expect(registry.getSkill('../escape', 'latest')).rejects.toThrow('Invalid skill name');
+    });
+
+    it('should install and uninstall files while tracking downloads', async () => {
+      const skill = {
+        name: 'install-skill', version: '1.0.0', description: 'A sufficiently descriptive install skill', author: 'Test',
+        runtime: { primary: 'claude-code' }, instructions: 'Instructions long enough for registry validation and installation.'
+      };
+      const file = path.join(tempDir, 'install.md');
+      const destination = path.join(tempDir, 'skills');
+      await skillParser.writeToFile(skill, file);
+      await registry.publish(file);
+      await registry.install('install-skill', '^1.0.0', destination);
+      expect(await fs.pathExists(path.join(destination, 'install-skill', 'skill.md'))).toBe(true);
+      expect((await registry.list())[0].downloads).toBe(1);
+      await registry.uninstall('install-skill', destination);
+      expect(await fs.pathExists(path.join(destination, 'install-skill'))).toBe(false);
+      await expect(registry.install('../escape', 'latest', destination)).rejects.toThrow('Invalid skill name');
+    });
+
+    it('should refuse a symlinked install target', async () => {
+      if (process.platform === 'win32') return;
+      const skill = {
+        name: 'linked-skill', version: '1.0.0', description: 'A sufficiently descriptive symlink skill', author: 'Test',
+        runtime: { primary: 'claude-code' }, instructions: 'Instructions long enough for registry validation and installation.'
+      };
+      const file = path.join(tempDir, 'linked.md');
+      const destination = path.join(tempDir, 'skills');
+      const outside = path.join(tempDir, 'outside');
+      await skillParser.writeToFile(skill, file);
+      await registry.publish(file);
+      await fs.ensureDir(destination);
+      await fs.ensureDir(outside);
+      await fs.symlink(outside, path.join(destination, 'linked-skill'));
+      await expect(registry.install('linked-skill', 'latest', destination)).rejects.toThrow('symbolic link');
+    });
+
+    it('should reject malformed local registry data', async () => {
+      await fs.writeJson(path.join(tempDir, 'registry.json'), { skills: [{ name: '../outside' }] });
+      expect(() => new LocalRegistry(tempDir)).toThrow('Invalid registry entry');
+    });
   });
 
   describe('search', () => {

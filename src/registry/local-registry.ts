@@ -1,77 +1,87 @@
 import path from 'path';
 import fs from 'fs-extra';
+import semver from 'semver';
 import { RegistryClient, SkillPackage, SkillSearchResult } from './types';
 import { Skill, SkillParser } from '../formats';
 
+interface RegistryEntry {
+  id: string;
+  name: string;
+  version: string;
+  author: string;
+  description: string;
+  license: string;
+  publishedAt: number;
+  downloads: number;
+  rating?: number;
+  skill: Skill;
+}
+
 interface RegistryData {
-  skills: Array<{
-    id: string;
-    name: string;
-    version: string;
-    author: string;
-    description: string;
-    license: string;
-    publishedAt: number;
-    downloads: number;
-    rating?: number;
-    skill: Skill;
-  }>;
+  skills: RegistryEntry[];
+}
+
+export function isSafeSkillName(name: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name);
 }
 
 export class LocalRegistry implements RegistryClient {
-  private dbPath: string;
-  private skillParser: SkillParser;
-  private registryPath: string;
-  private data!: RegistryData;
+  private readonly dbPath: string;
+  private readonly skillParser = new SkillParser();
+  private data: RegistryData;
 
-  constructor(registryPath: string = path.join(process.env.HOME || process.env.USERPROFILE || '', '.skillos', 'registry')) {
-    this.registryPath = registryPath;
-    this.skillParser = new SkillParser();
+  constructor(private readonly registryPath: string = path.join(process.env.HOME || process.env.USERPROFILE || '', '.skillos', 'registry')) {
     this.dbPath = path.join(registryPath, 'registry.json');
-    
     fs.ensureDirSync(registryPath);
-    this.initializeDatabase();
-  }
-
-  private initializeDatabase(): void {
     if (fs.existsSync(this.dbPath)) {
-      this.data = fs.readJSONSync(this.dbPath);
+      const loaded = fs.readJsonSync(this.dbPath) as Partial<RegistryData>;
+      if (!loaded || !Array.isArray(loaded.skills)) throw new Error(`Invalid registry file: ${this.dbPath}`);
+      for (const entry of loaded.skills) {
+        if (!entry || !isSafeSkillName(entry.name) || !semver.valid(entry.version)
+          || entry.id !== `${entry.name}@${entry.version}` || typeof entry.author !== 'string'
+          || typeof entry.description !== 'string' || typeof entry.license !== 'string'
+          || !Number.isSafeInteger(entry.publishedAt) || !Number.isSafeInteger(entry.downloads) || entry.downloads < 0
+          || !entry.skill || entry.skill.name !== entry.name || entry.skill.version !== entry.version
+          || !this.skillParser.validate(entry.skill).valid) {
+          throw new Error(`Invalid registry entry in ${this.dbPath}`);
+        }
+      }
+      this.data = loaded as RegistryData;
     } else {
       this.data = { skills: [] };
-      fs.writeJSONSync(this.dbPath, this.data);
+      this.save();
     }
   }
 
   private save(): void {
-    fs.writeJSONSync(this.dbPath, this.data);
+    fs.writeJsonSync(this.dbPath, this.data, { spaces: 2 });
   }
 
-  async install(skillName: string, version?: string): Promise<void> {
-    const skill = await this.getSkill(skillName, version || 'latest');
-    const installPath = path.join(process.env.HOME || process.env.USERPROFILE || '', '.skillos', 'skills', skill.name);
-    
+  async install(skillName: string, version = 'latest', destinationRoot = path.join(process.env.HOME || process.env.USERPROFILE || '', '.skillos', 'skills')): Promise<void> {
+    if (!isSafeSkillName(skillName)) throw new Error(`Invalid skill name '${skillName}'`);
+    const skill = await this.getSkill(skillName, version);
+    const root = path.resolve(destinationRoot);
+    const installPath = path.resolve(root, skill.name);
+    if (!installPath.startsWith(`${root}${path.sep}`)) throw new Error('Install path escapes destination directory');
+    if (await fs.pathExists(installPath) && (await fs.lstat(installPath)).isSymbolicLink()) {
+      throw new Error('Refusing to install through a symbolic link');
+    }
     await fs.ensureDir(installPath);
     await this.skillParser.writeToFile(skill, path.join(installPath, 'skill.md'));
-    
-    const skillEntry = this.data.skills.find(s => s.name === skillName && s.version === skill.version);
-    if (skillEntry) {
-      skillEntry.downloads++;
+    const entry = this.data.skills.find(item => item.name === skillName && item.version === skill.version);
+    if (entry) {
+      entry.downloads += 1;
       this.save();
     }
   }
 
   async publish(skillPath: string): Promise<void> {
-    const skill = await this.skillParser.parseFile(skillPath);
-    const id = `${skill.name}@${skill.version}`;
-    
-    const existing = this.data.skills.find(s => s.name === skill.name && s.version === skill.version);
-    
-    if (existing) {
-      throw new Error(`Skill ${skill.name}@${skill.version} already exists in registry`);
-    }
-
+    const skill = await this.skillParser.parseFile(path.resolve(skillPath));
+    if (!isSafeSkillName(skill.name)) throw new Error(`Invalid skill name '${skill.name}'`);
+    const existing = this.data.skills.find(item => item.name === skill.name && item.version === skill.version);
+    if (existing) throw new Error(`Skill ${skill.name}@${skill.version} already exists in registry`);
     this.data.skills.push({
-      id,
+      id: `${skill.name}@${skill.version}`,
       name: skill.name,
       version: skill.version,
       author: skill.author,
@@ -79,80 +89,65 @@ export class LocalRegistry implements RegistryClient {
       license: skill.license || 'MIT',
       publishedAt: Date.now(),
       downloads: 0,
-      rating: undefined,
       skill
     });
-    
     this.save();
   }
 
   async search(query: string): Promise<SkillSearchResult[]> {
-    const searchPattern = query.toLowerCase();
-    const results = this.data.skills
-      .filter(s => 
-        s.name.toLowerCase().includes(searchPattern) ||
-        s.description.toLowerCase().includes(searchPattern) ||
-        s.author.toLowerCase().includes(searchPattern)
-      )
-      .sort((a, b) => b.downloads - a.downloads)
-      .slice(0, 50);
-    
-    return results.map(row => ({
-      name: row.name,
-      author: row.author,
-      description: row.description,
-      version: row.version,
-      downloads: row.downloads,
-      rating: row.rating,
-      tags: row.skill.metadata?.tags || []
-    }));
-  }
-
-  async list(): Promise<SkillPackage[]> {
+    const pattern = query.trim().toLowerCase();
     return this.data.skills
-      .sort((a, b) => b.publishedAt - a.publishedAt)
-      .map(row => ({
-        id: row.id,
-        name: row.name,
-        version: row.version,
-        author: row.author,
-        description: row.description,
-        license: row.license,
-        skill: row.skill,
-        publishedAt: new Date(row.publishedAt),
-        downloads: row.downloads,
-        rating: row.rating
+      .filter(item => item.name.toLowerCase().includes(pattern) || item.description.toLowerCase().includes(pattern) || item.author.toLowerCase().includes(pattern))
+      .sort((a, b) => b.downloads - a.downloads)
+      .slice(0, 50)
+      .map(item => ({
+        name: item.name,
+        author: item.author,
+        description: item.description,
+        version: item.version,
+        downloads: item.downloads,
+        rating: item.rating,
+        tags: item.skill.metadata?.tags || []
       }));
   }
 
-  async getSkill(name: string, version: string): Promise<Skill> {
-    if (version === 'latest') {
-      const skills = this.data.skills
-        .filter(s => s.name === name)
-        .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
-      
-      if (skills.length === 0) {
-        throw new Error(`Skill ${name} not found`);
-      }
-      return skills[0].skill;
-    } else {
-      const skill = this.data.skills.find(s => s.name === name && s.version === version);
-      if (!skill) {
-        throw new Error(`Skill ${name}@${version} not found`);
-      }
-      return skill.skill;
-    }
+  async list(): Promise<SkillPackage[]> {
+    return [...this.data.skills]
+      .sort((a, b) => b.publishedAt - a.publishedAt)
+      .map(item => ({
+        id: item.id,
+        name: item.name,
+        version: item.version,
+        author: item.author,
+        description: item.description,
+        license: item.license,
+        skill: item.skill,
+        publishedAt: new Date(item.publishedAt),
+        downloads: item.downloads,
+        rating: item.rating
+      }));
   }
 
-  async uninstall(skillName: string): Promise<void> {
-    const installPath = path.join(process.env.HOME || process.env.USERPROFILE || '', '.skillos', 'skills', skillName);
-    
-    if (await fs.pathExists(installPath)) {
-      await fs.remove(installPath);
-    }
+  async getSkill(name: string, version = 'latest'): Promise<Skill> {
+    if (!isSafeSkillName(name)) throw new Error(`Invalid skill name '${name}'`);
+    const entries = this.data.skills.filter(item => item.name === name);
+    const matching = version === 'latest'
+      ? entries
+      : semver.validRange(version)
+        ? entries.filter(item => semver.satisfies(item.version, version))
+        : entries.filter(item => item.version === version);
+    matching.sort((a, b) => semver.rcompare(a.version, b.version));
+    if (matching.length === 0) throw new Error(`Skill ${name}@${version} not found`);
+    return matching[0].skill;
   }
 
-  close(): void {
-    // No cleanup needed for JSON file
+  async uninstall(skillName: string, destinationRoot = path.join(process.env.HOME || process.env.USERPROFILE || '', '.skillos', 'skills')): Promise<void> {
+    if (!isSafeSkillName(skillName)) throw new Error(`Invalid skill name '${skillName}'`);
+    const root = path.resolve(destinationRoot);
+    const target = path.resolve(root, skillName);
+    if (!target.startsWith(`${root}${path.sep}`)) throw new Error('Uninstall path escapes destination directory');
+    if (await fs.pathExists(target)) await fs.remove(target);
   }
+
+  close(): void {}
 }
