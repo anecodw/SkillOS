@@ -37,7 +37,7 @@ describe('sandbox child process execution', () => {
   it('surfaces worker errors', async () => {
     mockedFork.mockReturnValue(new FakeChild({ error: 'provider key missing' }) as never);
     const sandbox = new BasicSandbox();
-    sandbox.configure({ allowNetwork: true });
+    sandbox.configure({ allowNetwork: true, env: { OPENAI_API_KEY: 'test-key' } });
     await expect(sandbox.execute(skill, 'hello')).rejects.toThrow('provider key missing');
   });
 
@@ -45,7 +45,7 @@ describe('sandbox child process execution', () => {
     const child = new FakeChild(undefined, true);
     mockedFork.mockReturnValue(child as never);
     const sandbox = new BasicSandbox();
-    sandbox.configure({ allowNetwork: true, timeoutMs: 10 });
+    sandbox.configure({ allowNetwork: true, timeoutMs: 10, env: { OPENAI_API_KEY: 'test-key' } });
     await expect(sandbox.execute(skill, 'hello')).rejects.toThrow('Execution timeout after 10ms');
     expect(child.killed).toBe(true);
   });
