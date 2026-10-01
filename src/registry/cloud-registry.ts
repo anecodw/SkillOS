@@ -3,7 +3,23 @@ import { RegistryClient, SkillPackage, SkillSearchResult } from './types';
 import { Skill } from '../formats';
 
 export class CloudRegistry implements RegistryClient {
-  constructor(private readonly baseUrl = 'https://registry.skillos.io', private readonly apiKey?: string) {}
+  constructor(
+    private readonly configuredBaseUrl = process.env.SKILLOS_REGISTRY_URL,
+    private readonly apiKey = process.env.SKILLOS_REGISTRY_API_KEY
+  ) {}
+
+  private getBaseUrl(): string {
+    if (!this.configuredBaseUrl?.trim()) {
+      throw new Error('Cloud registry URL is not configured. Pass baseUrl to CloudRegistry or set SKILLOS_REGISTRY_URL.');
+    }
+    try {
+      const url = new URL(this.configuredBaseUrl);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error();
+      return this.configuredBaseUrl.replace(/\/+$/, '');
+    } catch {
+      throw new Error('Cloud registry URL must be a valid HTTP or HTTPS URL.');
+    }
+  }
 
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -20,17 +36,17 @@ export class CloudRegistry implements RegistryClient {
   }
 
   async search(query: string): Promise<SkillSearchResult[]> {
-    const response = await axios.get(`${this.baseUrl}/api/v1/skills/search?q=${encodeURIComponent(query)}`, { headers: this.getHeaders() });
+    const response = await axios.get(`${this.getBaseUrl()}/api/v1/skills/search?q=${encodeURIComponent(query)}`, { headers: this.getHeaders() });
     return response.data as SkillSearchResult[];
   }
 
   async list(): Promise<SkillPackage[]> {
-    const response = await axios.get(`${this.baseUrl}/api/v1/skills`, { headers: this.getHeaders() });
+    const response = await axios.get(`${this.getBaseUrl()}/api/v1/skills`, { headers: this.getHeaders() });
     return response.data as SkillPackage[];
   }
 
   async getSkill(name: string, version: string): Promise<Skill> {
-    const response = await axios.get(`${this.baseUrl}/api/v1/skills/${encodeURIComponent(name)}/${encodeURIComponent(version)}`, { headers: this.getHeaders() });
+    const response = await axios.get(`${this.getBaseUrl()}/api/v1/skills/${encodeURIComponent(name)}/${encodeURIComponent(version)}`, { headers: this.getHeaders() });
     return response.data as Skill;
   }
 
